@@ -1,9 +1,10 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for, flash
 import pandas as pd
 import numpy as np
 import operator
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'  # Needed for session management and flash messages
 
 class Team():
     def __init__(self, num_players=0):
@@ -23,27 +24,29 @@ class Team():
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
-        # Check if the post request has the file part
         if 'file' not in request.files:
+            flash('No file part')
             return redirect(request.url)
         file = request.files['file']
+        num_teams = int(request.form['num_teams'])
+        total_players = int(request.form['total_players'])
         if file:
             df = pd.read_csv(file)
-            process_data(df)
+            if not process_data(df, num_teams, total_players):
+                flash('Error processing data. Please check your CSV and numbers of teams/players.')
+                return redirect(request.url)
             return redirect(url_for('results'))
     return render_template('upload.html')
 
-def process_data(df):
-    num_teams = 2  # This could be made dynamic by user input
-    total_players = 18  # As above, could be user input
-
+def process_data(df, num_teams, total_players):
+    if len(df) < total_players:
+        return False  # Not enough players in the CSV to form teams
     teams = [Team(num_players=0) for _ in range(num_teams)]
-    goal_keeper = list(df[df['goalkeeper'] == 1].sample(num_teams)['player'])
+    goal_keeper = list(df[df['goalkeeper'] == 1].sample(n=num_teams, replace=False)['player'])
     df = df[df['goalkeeper'] != 1]
-    df = df.sample(total_players - num_teams)
+    df = df.sample(n=total_players - num_teams, replace=False)
     df = df.sort_values(by='score', ascending=False)
     
-    team_index = 0
     for score in range(4, 0, -1):
         same_score_players = df[df['score'] == score]["player"].values
         np.random.shuffle(same_score_players)
@@ -54,9 +57,9 @@ def process_data(df):
     for i in range(num_teams):
         teams[i].add_goalkeeper(goal_keeper[i])
     
-    # Store results globally or use database/session
     global results
     results = [(team.num_players, team.players, np.mean(team.scores)) for team in teams]
+    return True
 
 @app.route('/results')
 def results():
