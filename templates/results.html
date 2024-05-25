@@ -1,0 +1,17 @@
+!DOCTYPE html>
+<html>
+<head>
+    <title>Results</title>
+</head>
+<body>
+    <h1>Team Assignments</h1>
+    {% for num_players, players, score in results %}
+    <div>
+        <h2>Team Details</h2>
+        <p>Number of Players: {{ num_players }}</p>
+        <p>Players: {{ players }}</p>
+        <p>Average Score: {{ score }}</p>
+    </div>
+    {% endfor %}
+</body>
+</html>
